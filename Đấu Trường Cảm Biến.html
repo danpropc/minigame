@@ -1,0 +1,1362 @@
+<!doctype html><html><head><meta charset=utf8><meta name=viewport content="width=device-width,initial-scale=1,viewport-fit=cover"><style>:root{color-scheme:light;box-sizing:border-box;padding-top:env(safe-area-inset-top,0px);padding-bottom:env(safe-area-inset-bottom,0px)}html{scroll-padding-top:env(safe-area-inset-top,0px)}body{margin:0;padding:0;font:14px -apple-system,BlinkMacSystemFont,sans-serif;background:#fff;color:#000}img{max-width:100%}[hidden]:not([hidden=until-found i]){display:none!important}</style></head><body>
+<title>Đấu Trường Cảm Biến</title>
+<meta name="claude:viewport-fit-sides" content="cover">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Baloo+2:wght@600;800&family=Be+Vietnam+Pro:wght@400;500;600;700&family=JetBrains+Mono:wght@500;700&display=swap" rel="stylesheet">
+<style>
+/* Layout concept: bảng mạch PCB tối làm nền, một "sân đấu" giữa trang; đáp án bốn màu kiểu Kahoot; điểm và mã PIN dùng chữ mono như đồng hồ đo. */
+:root{
+  color-scheme: dark;
+  --bg:#05171a;
+  --surface:#0b2a2d;
+  --surface-2:#113a3d;
+  --line:#1d5659;
+  --ink:#e9f7f3;
+  --muted:#8db7b1;
+  --copper:#f2a950;
+  --signal:#56f0c3;
+  --good:#38d27a;
+  --bad:#ff5a6e;
+  --red:#d62f47;
+  --blue:#2a6fd1;
+  --yellow:#f2b705;
+  --green:#1f8a3b;
+  --font-display:'Baloo 2','Be Vietnam Pro',system-ui,sans-serif;
+  --font-body:'Be Vietnam Pro',system-ui,-apple-system,'Segoe UI',Roboto,sans-serif;
+  --font-mono:'JetBrains Mono',ui-monospace,SFMono-Regular,Menlo,monospace;
+}
+*,*::before,*::after{box-sizing:border-box}
+html{scroll-behavior:auto}
+body{
+  background:var(--bg);color:var(--ink);font-family:var(--font-body);font-size:16px;line-height:1.55;
+  padding-block:16px 48px;
+  padding-left:max(16px,env(safe-area-inset-left,0px));
+  padding-right:max(16px,env(safe-area-inset-right,0px));
+  min-height:100%;overflow-x:hidden;
+}
+body::before{
+  content:"";position:fixed;inset:0;z-index:-1;pointer-events:none;
+  background-image:
+    radial-gradient(circle at 1px 1px,rgba(86,240,195,.2) 1.5px,transparent 2px),
+    linear-gradient(rgba(86,240,195,.045) 1px,transparent 1px),
+    linear-gradient(90deg,rgba(86,240,195,.045) 1px,transparent 1px);
+  background-size:48px 48px;
+  -webkit-mask-image:radial-gradient(ellipse at 50% 25%,#000 20%,transparent 78%);
+  mask-image:radial-gradient(ellipse at 50% 25%,#000 20%,transparent 78%);
+}
+button,input{font:inherit;color:inherit}
+button{cursor:pointer}
+:focus-visible{outline:3px solid var(--copper);outline-offset:2px}
+.stage{max-width:960px;margin:0 auto;display:grid;gap:16px}
+.screen{display:grid;gap:16px;animation:rise .35s ease both;min-width:0}
+@keyframes rise{from{opacity:0;transform:translateY(14px)}to{opacity:1;transform:none}}
+.panel{background:var(--surface);border:1px solid var(--line);border-radius:18px;padding:20px;min-width:0}
+.lbl{font-size:.78rem;font-weight:700;letter-spacing:.09em;text-transform:uppercase;color:var(--muted)}
+.mono{font-family:var(--font-mono);font-variant-numeric:tabular-nums}
+
+/* ---------- Buttons ---------- */
+.btn{
+  display:inline-flex;align-items:center;justify-content:center;gap:10px;border:0;border-radius:14px;
+  padding:14px 26px;font-weight:700;color:#06201b;background:var(--signal);
+  box-shadow:0 5px 0 #1e9c7d;transition:transform .1s,box-shadow .1s,filter .2s;
+}
+.btn:hover:not(:disabled){filter:brightness(1.08)}
+.btn:active:not(:disabled){transform:translateY(4px);box-shadow:0 1px 0 #1e9c7d}
+.btn:disabled{opacity:.45;cursor:not-allowed}
+.btn.big{font-size:1.1rem;padding:16px 28px;width:100%}
+.btn.ghost{background:var(--surface-2);color:var(--ink);box-shadow:0 5px 0 rgba(0,0,0,.35);border:1px solid var(--line)}
+.btn.copper{background:var(--copper);box-shadow:0 5px 0 #a86a1d;color:#2a1700}
+
+/* ---------- Top bar ---------- */
+.bar{display:flex;align-items:center;justify-content:space-between;gap:10px 14px;flex-wrap:wrap;padding:6px 2px}
+.bar-l,.bar-r{display:flex;align-items:center;gap:10px;flex-wrap:wrap;min-width:0}
+.brand{font-family:var(--font-display);font-weight:800;font-size:1.15rem;letter-spacing:.01em}
+.brand b{color:var(--signal)}
+.hudme{display:inline-flex;align-items:center;gap:8px;font-weight:700;min-width:0}
+.hudme b{overflow:hidden;text-overflow:ellipsis;white-space:nowrap;max-width:11ch}
+.hav{
+  width:40px;height:40px;border-radius:50%;display:inline-grid;place-items:center;flex:none;font-size:1.3rem;
+  background:var(--surface-2);background:color-mix(in srgb,var(--c,#56f0c3) 26%,var(--surface));
+  border:2px solid var(--c,#56f0c3);
+}
+.pill{display:inline-flex;align-items:center;gap:8px;padding:5px 12px;border-radius:999px;background:var(--surface-2);border:1px solid var(--line);font-size:.88rem;font-weight:600}
+.pill b{font-family:var(--font-mono);font-size:1rem;font-variant-numeric:tabular-nums}
+.pill.score{border-color:var(--copper)}
+.pill.score b{color:var(--copper)}
+.pill.streak{color:var(--copper)}
+.pill.shield{color:var(--signal);border-color:var(--signal)}
+.bar-m{font-weight:700;color:var(--muted)}
+.ibtn{border:1px solid var(--line);background:var(--surface-2);border-radius:10px;padding:6px 12px;font-size:.85rem;font-weight:600}
+.ibtn:hover{border-color:var(--signal)}
+
+/* ---------- Home ---------- */
+.home-grid{display:grid;grid-template-columns:1.1fr .9fr;gap:20px;align-items:start}
+@media(max-width:820px){.home-grid{grid-template-columns:1fr}}
+.kicker{font-family:var(--font-mono);font-size:.8rem;letter-spacing:.08em;text-transform:uppercase;color:var(--copper);margin-bottom:6px}
+h1{font-family:var(--font-display);font-weight:800;font-size:clamp(2.4rem,7vw,4.2rem);line-height:1.02;text-wrap:balance}
+h1 span{color:var(--signal)}
+.lead{margin-top:14px;color:#c4e2dc;max-width:46ch}
+.rules{list-style:none;display:grid;gap:10px;margin-top:22px}
+.rules li{display:grid;grid-template-columns:92px 1fr;gap:12px;align-items:baseline;font-size:.95rem;color:#c4e2dc}
+.rules .tag{font-family:var(--font-mono);font-size:.76rem;font-weight:700;text-transform:uppercase;letter-spacing:.06em;color:var(--signal)}
+.join{display:grid;gap:14px}
+.join label{font-weight:700}
+#nameInput{
+  width:100%;padding:14px 16px;border-radius:12px;background:var(--bg);border:2px solid var(--line);font-size:1.1rem;font-weight:600;
+}
+#nameInput:focus{outline:none;border-color:var(--signal)}
+.err{color:var(--bad);font-size:.9rem;font-weight:600}
+.avgrid{display:grid;grid-template-columns:repeat(4,1fr);gap:8px}
+@media(min-width:560px) and (max-width:820px){.avgrid{grid-template-columns:repeat(6,1fr)}}
+.av{
+  display:grid;place-items:center;gap:2px;padding:8px 4px;border-radius:12px;background:var(--bg);border:2px solid var(--line);
+  transition:transform .12s,border-color .12s;min-width:0;
+}
+.av:hover{transform:translateY(-2px)}
+.av .ae{font-size:1.7rem;line-height:1.2}
+.av .an{font-size:.66rem;color:var(--muted);font-weight:600;max-width:100%;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.av[aria-pressed="true"]{border-color:var(--c);background:var(--surface-2);box-shadow:0 0 0 3px color-mix(in srgb,var(--c) 30%,transparent)}
+.av[aria-pressed="true"] .an{color:var(--ink)}
+.seg{display:flex;gap:8px}
+.seg button{flex:1;padding:10px;border-radius:12px;border:2px solid var(--line);background:var(--bg);font-weight:700}
+.seg button[aria-pressed="true"]{border-color:var(--signal);background:var(--surface-2);color:var(--signal)}
+.best{font-size:.88rem;color:var(--muted);text-align:center;min-height:1.3em}
+details.theory{background:var(--surface);border:1px solid var(--line);border-radius:18px;padding:6px 20px}
+details.theory summary{cursor:pointer;font-weight:700;padding:14px 0;list-style:none;display:flex;justify-content:space-between;align-items:center}
+details.theory summary::-webkit-details-marker{display:none}
+details.theory summary::after{content:"+";font-family:var(--font-mono);font-size:1.3rem;color:var(--signal)}
+details.theory[open] summary::after{content:"−"}
+.tgrid{display:grid;grid-template-columns:repeat(auto-fit,minmax(240px,1fr));gap:14px;padding:4px 0 18px}
+.tgrid h3{font-size:1rem;color:var(--signal);margin-bottom:6px}
+.tgrid ul{padding-left:18px;font-size:.92rem;color:#c4e2dc}
+.tgrid li{margin:4px 0}
+.formula{display:inline-block;padding:6px 12px;border-radius:10px;border:1px dashed var(--signal);margin:4px 0;font-weight:600}
+
+/* Fractions */
+.frac{display:inline-flex;flex-direction:column;vertical-align:middle;text-align:center;margin:0 3px;font-size:.92em;line-height:1.2}
+.frac>span:first-child{border-bottom:1.5px solid currentColor;padding:0 4px}
+.frac>span:last-child{padding:0 4px}
+
+/* ---------- Waiting room ---------- */
+.wait{text-align:center;display:grid;gap:18px;justify-items:center;padding:28px 20px}
+.pin{font-family:var(--font-mono);font-weight:700;font-size:clamp(2.4rem,9vw,4.4rem);letter-spacing:.12em;background:var(--bg);border:2px solid var(--copper);border-radius:16px;padding:6px 26px;color:var(--copper)}
+.joined{display:flex;flex-wrap:wrap;gap:10px;justify-content:center;min-height:52px}
+.jchip{display:inline-flex;align-items:center;gap:8px;padding:6px 14px 6px 6px;border-radius:999px;background:var(--surface-2);border:1px solid var(--line);font-weight:600;animation:pop .35s ease both}
+.jchip.me{border-color:var(--signal)}
+@keyframes pop{0%{transform:scale(.6);opacity:0}70%{transform:scale(1.08)}100%{transform:scale(1);opacity:1}}
+.cd-big{font-family:var(--font-display);font-weight:800;font-size:clamp(4rem,18vw,8rem);line-height:1;color:var(--signal);animation:pop .5s ease both}
+
+/* ---------- Bet ---------- */
+.betwrap{display:grid;gap:18px}
+.bethead{display:flex;flex-wrap:wrap;gap:10px 16px;align-items:baseline;justify-content:space-between}
+.bethead h2{font-family:var(--font-display);font-size:1.9rem;line-height:1.1}
+.topic{padding:4px 12px;border-radius:8px;border:1px solid var(--signal);color:var(--signal);font-weight:600;font-size:.9rem}
+.gold{background:var(--copper);color:#2a1700;padding:10px 16px;border-radius:12px;font-weight:700}
+.bets{display:grid;grid-template-columns:repeat(3,1fr);gap:12px}
+@media(max-width:640px){.bets{grid-template-columns:1fr}}
+.bet{
+  text-align:left;display:grid;gap:4px;padding:16px;border-radius:16px;border:2px solid var(--line);background:var(--surface);
+  transition:transform .12s,border-color .12s;min-width:0;
+}
+.bet:hover{transform:translateY(-3px)}
+.bet .bt{font-family:var(--font-display);font-weight:800;font-size:1.3rem}
+.bet .bm{font-family:var(--font-mono);font-weight:700;font-size:1.6rem}
+.bet .bd{font-size:.88rem;color:var(--muted)}
+.bet.b0 .bm{color:var(--signal)}
+.bet.b0:hover{border-color:var(--signal)}
+.bet.b1 .bm{color:var(--copper)}
+.bet.b1:hover{border-color:var(--copper)}
+.bet.b2 .bm{color:var(--bad)}
+.bet.b2:hover{border-color:var(--bad)}
+.tbar{height:10px;border-radius:99px;background:var(--surface-2);overflow:hidden}
+.tbar>div{height:100%;width:100%;background:var(--signal);border-radius:99px}
+.tbar.warn>div{background:var(--copper)}
+.tbar.danger>div{background:var(--bad)}
+.hint{font-size:.82rem;color:var(--muted)}
+
+/* ---------- Question ---------- */
+.qtop{display:flex;align-items:center;gap:14px}
+.qsec{
+  width:62px;height:62px;border-radius:50%;display:grid;place-items:center;flex:none;font-family:var(--font-mono);font-weight:700;font-size:1.6rem;
+  background:var(--surface-2);border:3px solid var(--signal);
+}
+.qsec.warn{border-color:var(--copper);color:var(--copper)}
+.qsec.danger{border-color:var(--bad);color:var(--bad)}
+.qtop .tbar{flex:1}
+.qchips{display:flex;gap:8px;flex-wrap:wrap}
+.qcard{padding:22px}
+.qtext{font-size:clamp(1.1rem,3.2vw,1.45rem);font-weight:600;line-height:1.5}
+.qfig{display:flex;justify-content:center;margin-top:14px}
+.qfig svg{max-width:100%;height:auto}
+.answers{display:grid;grid-template-columns:1fr 1fr;gap:12px}
+@media(max-width:600px){.answers{grid-template-columns:1fr}}
+.ans{
+  display:flex;align-items:center;gap:14px;min-height:84px;padding:14px 16px;border:0;border-radius:14px;color:#fff;
+  font-weight:600;font-size:1.02rem;text-align:left;box-shadow:0 6px 0 rgba(0,0,0,.34);
+  transition:transform .08s,box-shadow .08s,opacity .2s;min-width:0;
+}
+.ans[data-c="0"]{background:var(--red)}
+.ans[data-c="1"]{background:var(--blue)}
+.ans[data-c="2"]{background:var(--yellow);color:#2a2000}
+.ans[data-c="3"]{background:var(--green)}
+.ans:hover:not(:disabled){transform:translateY(-2px)}
+.ans:active:not(:disabled){transform:translateY(4px);box-shadow:0 2px 0 rgba(0,0,0,.34)}
+.ans:disabled{cursor:default}
+.ans.picked{outline:4px solid #fff;outline-offset:2px}
+.ans.dim{opacity:.4}
+.ans .shape{width:34px;height:34px;flex:none;display:grid;place-items:center}
+.ans .shape svg{width:30px;height:30px;fill:currentColor}
+.ans .atext{min-width:0;overflow-wrap:anywhere}
+.locked{text-align:center;font-weight:600;color:var(--muted);min-height:1.5em}
+
+/* ---------- Feedback ---------- */
+.fb-hero{border-radius:18px;padding:22px 24px;display:flex;flex-wrap:wrap;align-items:center;justify-content:space-between;gap:10px 20px;border:2px solid}
+.fb-hero.good{background:rgba(56,210,122,.14);border-color:var(--good)}
+.fb-hero.bad{background:rgba(255,90,110,.14);border-color:var(--bad)}
+.fb-hero h2{font-family:var(--font-display);font-weight:800;font-size:clamp(2rem,7vw,3rem);line-height:1}
+.fb-hero.good h2{color:var(--good)}
+.fb-hero.bad h2{color:var(--bad)}
+.fb-hero .sub{color:#c4e2dc;margin-top:4px}
+.fb-pts{font-family:var(--font-mono);font-weight:700;font-size:clamp(2rem,8vw,3.2rem);font-variant-numeric:tabular-nums}
+.fb-grid{display:grid;grid-template-columns:1fr 1fr;gap:16px}
+@media(max-width:700px){.fb-grid{grid-template-columns:1fr}}
+.brk{display:grid;gap:8px;margin-top:10px}
+.brk div{display:flex;justify-content:space-between;gap:12px;font-size:.95rem;color:#c4e2dc}
+.brk div b{font-family:var(--font-mono);font-variant-numeric:tabular-nums;color:var(--ink);white-space:nowrap}
+.brk .tot{border-top:1px dashed var(--line);padding-top:8px;margin-top:2px;font-weight:700;color:var(--ink)}
+.brk .neg b{color:var(--bad)}
+.brk .pos b{color:var(--good)}
+.dist{display:flex;gap:10px;align-items:flex-end;height:120px;margin-top:12px}
+.dcol{flex:1;display:grid;grid-template-rows:1fr auto;gap:6px;height:100%;justify-items:center;min-width:0}
+.dcol .dbar{align-self:end;width:100%;border-radius:8px 8px 0 0;min-height:6px;transition:height .6s ease}
+.dcol .dn{font-family:var(--font-mono);font-weight:700;font-size:.9rem}
+.dcol[data-c="0"] .dbar{background:var(--red)}
+.dcol[data-c="1"] .dbar{background:var(--blue)}
+.dcol[data-c="2"] .dbar{background:var(--yellow)}
+.dcol[data-c="3"] .dbar{background:var(--green)}
+.dcol.right .dn{color:var(--good)}
+.dcol:not(.right) .dbar{opacity:.45}
+.explain{font-size:.95rem;color:#d3ece6}
+.explain .ca{margin-bottom:8px;font-weight:600}
+.boxzone{display:grid;gap:12px;justify-items:center;text-align:center;padding:22px}
+.mbtn{display:grid;gap:4px;justify-items:center;border:2px dashed var(--copper);background:rgba(242,169,80,.1);border-radius:18px;padding:16px 34px;font-weight:700;color:var(--copper)}
+.mbtn .gift{font-size:3.4rem;line-height:1;animation:bounce 1.2s ease-in-out infinite}
+@keyframes bounce{0%,100%{transform:translateY(0) rotate(-4deg)}50%{transform:translateY(-10px) rotate(4deg)}}
+.reveal{display:grid;gap:4px;justify-items:center;animation:pop .5s ease both}
+.reveal .big{font-size:3.6rem;line-height:1}
+.reveal h3{font-family:var(--font-display);font-size:1.7rem;line-height:1.1}
+.reveal .d{font-family:var(--font-mono);font-weight:700;font-size:1.6rem}
+.reveal.good h3,.reveal.good .d,.reveal.jack h3,.reveal.jack .d{color:var(--good)}
+.reveal.bad h3,.reveal.bad .d{color:var(--bad)}
+.reveal.neutral h3{color:var(--signal)}
+.reveal.jack .big{animation:bounce .8s ease-in-out infinite}
+
+/* ---------- Leaderboard ---------- */
+.board h2,.wheelwrap h2{font-family:var(--font-display);font-size:1.9rem;line-height:1.1}
+.blist{position:relative;margin-top:14px}
+.row{
+  position:absolute;left:0;right:0;height:58px;display:grid;grid-template-columns:34px 40px 1fr auto auto;align-items:center;gap:10px;padding:0 14px;
+  border-radius:14px;background:var(--surface-2);border:1px solid var(--line);
+  transition:transform .8s cubic-bezier(.3,1.15,.4,1);
+}
+.row.me{border-color:var(--signal);background:#12484a}
+.row .rk{font-family:var(--font-mono);font-weight:700;color:var(--copper);text-align:center}
+.row .rn{font-weight:700;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;min-width:0}
+.row .rd{font-family:var(--font-mono);font-size:.85rem;font-weight:700;min-width:3.8em;text-align:right}
+.row .rd.up{color:var(--good)}
+.row .rd.down{color:var(--bad)}
+.row .rs{font-family:var(--font-mono);font-weight:700;font-size:1.1rem;min-width:4.6em;text-align:right;font-variant-numeric:tabular-nums}
+@media(max-width:480px){.row{grid-template-columns:26px 36px 1fr auto;padding:0 10px;gap:8px}.row .rd{display:none}.row .hav{width:34px;height:34px;font-size:1.1rem}}
+.gap-line{margin-top:14px;font-weight:600;color:#c4e2dc}
+
+/* ---------- Wheel ---------- */
+.wheelwrap{display:grid;gap:16px;justify-items:center;text-align:center}
+.wheel-box{position:relative;width:min(340px,86vw);aspect-ratio:1}
+.wheel-box svg{width:100%;height:100%;display:block;transition:transform 4.6s cubic-bezier(.15,.7,.1,1)}
+.pointer{position:absolute;left:50%;top:-8px;transform:translateX(-50%);width:0;height:0;border-left:14px solid transparent;border-right:14px solid transparent;border-top:28px solid var(--copper);filter:drop-shadow(0 2px 2px rgba(0,0,0,.5));z-index:2}
+.wres{min-height:140px;display:grid;align-content:center}
+
+/* ---------- Final ---------- */
+.final-head h2{font-family:var(--font-display);font-weight:800;font-size:clamp(2rem,6vw,3rem);line-height:1.05}
+.podium{display:grid;grid-template-columns:1fr 1fr 1fr;gap:10px;align-items:end;max-width:520px;margin:10px auto 0;width:100%}
+.pod{display:grid;justify-items:center;gap:4px;text-align:center;min-width:0}
+.pod .hav{width:54px;height:54px;font-size:1.8rem}
+.pod .pn{font-weight:700;font-size:.9rem;max-width:100%;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.pod .ps{font-family:var(--font-mono);font-weight:700;font-size:.9rem;color:var(--copper)}
+.pod .blk{width:100%;border-radius:12px 12px 0 0;display:grid;place-items:start center;padding-top:8px;font-family:var(--font-display);font-weight:800;font-size:2rem;color:#06201b}
+.pod.p1 .blk{height:150px;background:var(--copper)}
+.pod.p2 .blk{height:108px;background:#b9d3cf}
+.pod.p3 .blk{height:78px;background:#c98a52}
+.pod.me .pn{color:var(--signal)}
+.stats{display:grid;grid-template-columns:repeat(auto-fit,minmax(140px,1fr));gap:10px}
+.stat{padding:14px;border-radius:14px;background:var(--surface-2);border:1px solid var(--line)}
+.stat b{display:block;font-family:var(--font-mono);font-size:1.5rem;font-variant-numeric:tabular-nums}
+.stat small{color:var(--muted);font-weight:600}
+.rank-list{display:grid;gap:8px}
+.rank-list .rr{display:grid;grid-template-columns:30px 40px 1fr auto;gap:10px;align-items:center;padding:8px 12px;border-radius:12px;background:var(--surface-2);border:1px solid var(--line)}
+.rank-list .rr.me{border-color:var(--signal)}
+.rank-list .rr .rk{font-family:var(--font-mono);font-weight:700;color:var(--copper)}
+.rank-list .rr .rn{font-weight:700;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.rank-list .rr .rs{font-family:var(--font-mono);font-weight:700}
+.review{display:grid;gap:10px;padding-bottom:16px}
+.ritem{padding:14px 16px;border-radius:14px;background:var(--surface-2);border-left:4px solid var(--good);font-size:.93rem;min-width:0}
+.ritem.bad{border-left-color:var(--bad)}
+.ritem .rq{font-weight:600;margin-bottom:6px}
+.ritem .g{color:var(--good);font-weight:600}
+.ritem .r{color:var(--bad);font-weight:600}
+.ritem .re{color:var(--muted);margin-top:4px;font-size:.88rem}
+.actions{display:flex;gap:12px;flex-wrap:wrap}
+.actions .btn{flex:1 1 180px}
+
+canvas#confetti{position:fixed;inset:0;width:100%;height:100%;pointer-events:none;z-index:50}
+
+@media(prefers-reduced-motion:reduce){
+  *,*::before,*::after{animation-duration:.01ms!important;animation-iteration-count:1!important;transition-duration:.01ms!important}
+}
+</style>
+
+<main class="stage" id="app">
+  <header class="bar" id="bar">
+    <div class="bar-l">
+      <span class="brand" id="brand">Đấu Trường <b>Cảm Biến</b></span>
+      <span class="hudme" id="hudMe" hidden></span>
+    </div>
+    <div class="bar-m" id="hudQ" hidden></div>
+    <div class="bar-r">
+      <span class="pill streak" id="hudStreak" hidden></span>
+      <span class="pill shield" id="hudShield" hidden>Khiên</span>
+      <span class="pill score" id="hudScoreWrap" hidden>Điểm <b id="hudScore">0</b></span>
+      <button class="ibtn" id="sndBtn" type="button"></button>
+      <button class="ibtn" id="exitBtn" type="button" hidden>Thoát</button>
+    </div>
+  </header>
+
+  <!-- ===== HOME ===== -->
+  <section class="screen" id="s-home">
+    <div class="home-grid">
+      <div class="intro">
+        <p class="kicker">Vật lí 11 · Chuyên đề 3 · Bài 7</p>
+        <h1>Đấu Trường <span>Cảm Biến</span></h1>
+        <p class="lead">Thi đấu cùng 5 đối thủ máy về quang điện trở, điện trở nhiệt và mạch chia áp. Trả lời nhanh để lấy điểm, liều cược để bứt lên, và hy vọng hộp bí ẩn đừng chứa bom.</p>
+        <ul class="rules">
+          <li><span class="tag">Tốc độ</span><span>Đúng càng nhanh càng nhiều điểm, tối đa 1000 điểm mỗi câu.</span></li>
+          <li><span class="tag">Chuỗi</span><span>Đúng liên tiếp được cộng thêm 100 điểm mỗi bậc, tối đa 500.</span></li>
+          <li><span class="tag">Cược</span><span>Trước mỗi câu chọn An toàn, Cược ×2 hoặc All-in ×3. Trả lời sai sẽ bị trừ điểm.</span></li>
+          <li><span class="tag">Hộp bí ẩn</span><span>Mỗi câu đúng mở một hộp: cộng điểm, nhân đôi, cướp điểm, nhận khiên hoặc dính bom.</span></li>
+          <li><span class="tag">Vòng quay</span><span>Sau mỗi 5 câu có một vòng quay may rủi có thể đổi hạng của bạn.</span></li>
+        </ul>
+      </div>
+      <div class="panel join">
+        <div>
+          <label for="nameInput">Tên của bạn</label>
+          <input id="nameInput" type="text" maxlength="14" autocomplete="off" placeholder="Ví dụ: Minh Điện Tử">
+          <div class="err" id="nameErr" hidden>Hãy nhập tên trước khi vào phòng.</div>
+        </div>
+        <div>
+          <div class="lbl" style="margin-bottom:8px">Chọn nhân vật</div>
+          <div class="avgrid" id="avGrid" role="group" aria-label="Chọn nhân vật"></div>
+        </div>
+        <div>
+          <div class="lbl" style="margin-bottom:8px">Số câu hỏi</div>
+          <div class="seg" id="seg" role="group" aria-label="Số câu hỏi">
+            <button type="button" data-n="10" aria-pressed="true">10 câu · nhanh</button>
+            <button type="button" data-n="20" aria-pressed="false">20 câu · đủ bộ</button>
+          </div>
+        </div>
+        <button class="btn big" id="joinBtn" type="button">Vào phòng chờ</button>
+        <p class="best" id="bestLine"></p>
+      </div>
+    </div>
+    <details class="theory">
+      <summary>Ôn nhanh lí thuyết trước khi vào trận</summary>
+      <div class="tgrid">
+        <div>
+          <h3>Cảm biến</h3>
+          <ul>
+            <li>Cảm nhận đại lượng vật lí và biến đổi thành tín hiệu điện.</li>
+            <li>Sơ đồ khối: Cảm biến → Bộ xử lí → Thiết bị đầu ra.</li>
+          </ul>
+        </div>
+        <div>
+          <h3>Quang điện trở (LDR)</h3>
+          <ul>
+            <li>Chất bán dẫn, thường là CdS.</li>
+            <li>Ánh sáng tăng thì điện trở giảm vì mật độ hạt tải điện tăng.</li>
+          </ul>
+        </div>
+        <div>
+          <h3>Điện trở nhiệt</h3>
+          <ul>
+            <li>NTC: nhiệt độ tăng, điện trở giảm.</li>
+            <li>PTC: nhiệt độ tăng, điện trở tăng; dùng làm cầu chì tự phục hồi.</li>
+          </ul>
+        </div>
+        <div>
+          <h3>Mạch chia áp</h3>
+          <ul>
+            <li>Hai điện trở nối tiếp vào nguồn U.</li>
+            <li><span class="formula">U<sub>2</sub> = U · <span class="frac"><span>R<sub>2</sub></span><span>R<sub>1</sub> + R<sub>2</sub></span></span></span></li>
+            <li>Thay R bằng biến trở để chỉnh ngưỡng tác động.</li>
+          </ul>
+        </div>
+      </div>
+    </details>
+  </section>
+
+  <!-- ===== WAITING ROOM ===== -->
+  <section class="screen" id="s-wait" hidden>
+    <div class="panel wait">
+      <div class="lbl">Mã phòng</div>
+      <div class="pin" id="pin">000 000</div>
+      <div class="joined" id="joined"></div>
+      <p class="hint" id="waitCount">Đang chờ người chơi vào phòng</p>
+      <div class="cd-big" id="cdBig" hidden></div>
+      <button class="btn ghost" id="skipWait" type="button">Bắt đầu ngay</button>
+    </div>
+  </section>
+
+  <!-- ===== BET ===== -->
+  <section class="screen" id="s-bet" hidden>
+    <div class="panel betwrap">
+      <div class="bethead">
+        <h2 id="betNo">Câu 1</h2>
+        <span class="topic" id="betTopic"></span>
+      </div>
+      <div class="gold" id="betGold" hidden>Giờ vàng: điểm tốc độ của mọi người chơi trong câu này được nhân 1,5.</div>
+      <div class="bets" id="betOpts"></div>
+      <div>
+        <div class="tbar" id="betTbar"><div id="betBar"></div></div>
+        <p class="hint" style="margin-top:6px">Tự chọn An toàn sau <b id="betSec">6</b> giây. Phím tắt: 1, 2, 3.</p>
+      </div>
+    </div>
+  </section>
+
+  <!-- ===== QUESTION ===== -->
+  <section class="screen" id="s-q" hidden>
+    <div class="qtop">
+      <div class="qsec" id="qSec">20</div>
+      <div class="tbar" id="qTbar"><div id="qBar"></div></div>
+    </div>
+    <div class="qchips" id="qChips"></div>
+    <div class="panel qcard">
+      <div class="qtext" id="qText"></div>
+      <div class="qfig" id="qFig"></div>
+    </div>
+    <div class="answers" id="answers"></div>
+    <div class="locked" id="locked"></div>
+  </section>
+
+  <!-- ===== FEEDBACK ===== -->
+  <section class="screen" id="s-fb" hidden>
+    <div class="fb-hero good" id="fbHero">
+      <div>
+        <h2 id="fbTitle">Chính xác!</h2>
+        <div class="sub" id="fbSub"></div>
+      </div>
+      <div class="fb-pts" id="fbPts">+0</div>
+    </div>
+    <div class="fb-grid">
+      <div class="panel">
+        <div class="lbl">Cách tính điểm</div>
+        <div class="brk" id="fbBrk"></div>
+      </div>
+      <div class="panel">
+        <div class="lbl">Cả phòng chọn gì</div>
+        <div class="dist" id="fbDist"></div>
+      </div>
+    </div>
+    <div class="panel explain" id="fbExplain"></div>
+    <div class="panel boxzone" id="boxZone" hidden></div>
+    <button class="btn big" id="fbNext" type="button">Bảng xếp hạng</button>
+  </section>
+
+  <!-- ===== LEADERBOARD ===== -->
+  <section class="screen" id="s-board" hidden>
+    <div class="panel board">
+      <div class="lbl" id="boardSub">Sau câu 1</div>
+      <h2>Bảng xếp hạng</h2>
+      <div class="blist" id="boardList"></div>
+      <div class="gap-line" id="gapLine"></div>
+    </div>
+    <button class="btn big" id="boardNext" type="button">Câu tiếp theo</button>
+  </section>
+
+  <!-- ===== WHEEL ===== -->
+  <section class="screen" id="s-wheel" hidden>
+    <div class="panel wheelwrap">
+      <div>
+        <div class="lbl">Điểm dừng sau câu <span id="wheelAt">5</span></div>
+        <h2>Vòng quay may rủi</h2>
+      </div>
+      <div class="wheel-box">
+        <div class="pointer"></div>
+        <svg id="wheelSvg" viewBox="0 0 320 320" aria-hidden="true"></svg>
+      </div>
+      <div class="wres" id="wheelRes"><p class="hint">Mỗi ô có xác suất như nhau. Có thể lên hạng, cũng có thể tụt hạng.</p></div>
+      <button class="btn copper big" id="spinBtn" type="button">Quay!</button>
+      <button class="btn big" id="wheelNext" type="button" hidden>Tiếp tục</button>
+    </div>
+  </section>
+
+  <!-- ===== FINAL ===== -->
+  <section class="screen" id="s-final" hidden>
+    <div class="panel final-head">
+      <div class="lbl">Kết thúc trận đấu</div>
+      <h2 id="finTitle">Hạng 1</h2>
+      <p class="lead" id="finMsg" style="margin-top:6px"></p>
+      <div class="podium" id="podium"></div>
+    </div>
+    <div class="stats" id="finStats"></div>
+    <div class="panel">
+      <div class="lbl" style="margin-bottom:10px">Xếp hạng chung cuộc</div>
+      <div class="rank-list" id="finRank"></div>
+    </div>
+    <details class="theory" id="finReviewBox">
+      <summary id="finReviewSum">Xem lại đáp án</summary>
+      <div class="review" id="finReview"></div>
+    </details>
+    <div class="actions">
+      <button class="btn" id="againBtn" type="button">Chơi lại</button>
+      <button class="btn ghost" id="homeBtn" type="button">Đổi tên hoặc nhân vật</button>
+    </div>
+  </section>
+</main>
+<canvas id="confetti"></canvas>
+
+<script>
+(function(){
+'use strict';
+
+/* ===================== TIỆN ÍCH ===================== */
+var $ = function(s){ return document.querySelector(s); };
+var $$ = function(s){ return Array.prototype.slice.call(document.querySelectorAll(s)); };
+var esc = function(s){ return String(s).replace(/[&<>"']/g,function(c){ return {'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]; }); };
+var nf = function(n){ return Math.round(n).toLocaleString('vi-VN'); };
+var sgn = function(n){ return (n>0?'+':n<0?'−':'') + nf(Math.abs(n)); };
+var dec1 = function(x){ return x.toFixed(1).replace('.',','); };
+function shuffle(a){ a=a.slice(); for(var i=a.length-1;i>0;i--){ var j=Math.floor(Math.random()*(i+1)); var t=a[i]; a[i]=a[j]; a[j]=t; } return a; }
+function pickWeighted(list){
+  var sum=0; list.forEach(function(x){ sum+=x.w; });
+  var r=Math.random()*sum;
+  for(var i=0;i<list.length;i++){ r-=list[i].w; if(r<0) return list[i]; }
+  return list[list.length-1];
+}
+var store = {
+  get:function(k,d){ try{ var v=localStorage.getItem(k); return v?JSON.parse(v):d; }catch(e){ return d; } },
+  set:function(k,v){ try{ localStorage.setItem(k,JSON.stringify(v)); }catch(e){} }
+};
+
+/* ===================== ÂM THANH ===================== */
+var AC=null, muted=!!store.get('dtcb-muted',false);
+function ac(){
+  if(!AC){ try{ AC=new (window.AudioContext||window.webkitAudioContext)(); }catch(e){ AC=null; } }
+  if(AC && AC.state==='suspended'){ try{ AC.resume(); }catch(e){} }
+  return AC;
+}
+function tone(f,d,type,v,delay){
+  if(muted) return;
+  var c=ac(); if(!c) return;
+  try{
+    var o=c.createOscillator(), g=c.createGain(), t=c.currentTime+(delay||0);
+    o.type=type||'sine'; o.frequency.value=f;
+    g.gain.setValueAtTime(0.0001,t);
+    g.gain.linearRampToValueAtTime(v||.06,t+.01);
+    g.gain.exponentialRampToValueAtTime(.0001,t+d);
+    o.connect(g); g.connect(c.destination);
+    o.start(t); o.stop(t+d+.03);
+  }catch(e){}
+}
+var sfx = {
+  click:function(){ tone(520,.06,'triangle',.05); },
+  good:function(){ [523,659,784,1047].forEach(function(f,i){ tone(f,.18,'triangle',.07,i*.07); }); },
+  bad:function(){ tone(180,.28,'sawtooth',.05); tone(140,.3,'sawtooth',.05,.12); },
+  tick:function(){ tone(900,.05,'square',.025); },
+  open:function(){ [392,494,587].forEach(function(f,i){ tone(f,.12,'triangle',.07,i*.06); }); },
+  jackpot:function(){ [523,659,784,1047,1319].forEach(function(f,i){ tone(f,.22,'square',.04,i*.08); }); },
+  boom:function(){ tone(90,.45,'sawtooth',.08); tone(60,.5,'square',.05,.05); },
+  spin:function(){ tone(700+Math.random()*200,.04,'square',.02); },
+  join:function(){ tone(660,.08,'sine',.05); },
+  go:function(){ tone(880,.25,'square',.05); }
+};
+function renderSound(){ $('#sndBtn').textContent = muted ? 'Âm thanh: tắt' : 'Âm thanh: bật'; }
+
+/* ===================== DỮ LIỆU ===================== */
+var F = function(a,b){ return '<span class="frac"><span>'+a+'</span><span>'+b+'</span></span>'; };
+
+var circuit = function(top,bottom){
+  return '<svg width="360" height="190" viewBox="0 0 360 190" fill="none" stroke="#cbd5ff" stroke-width="2" font-family="Be Vietnam Pro, sans-serif" role="img" aria-label="Sơ đồ mạch chia áp">'
+  +'<line x1="60" y1="20" x2="200" y2="20"/><line x1="60" y1="170" x2="200" y2="170"/>'
+  +'<line x1="60" y1="20" x2="60" y2="82"/><line x1="60" y1="108" x2="60" y2="170"/>'
+  +'<line x1="44" y1="82" x2="76" y2="82" stroke-width="3"/><line x1="52" y1="92" x2="68" y2="92" stroke-width="3"/>'
+  +'<line x1="60" y1="92" x2="60" y2="108"/>'
+  +'<text x="18" y="94" fill="#fbbf24" stroke="none" font-size="14" font-weight="700">U</text>'
+  +'<line x1="200" y1="20" x2="200" y2="40"/><rect x="186" y="40" width="28" height="44" rx="4" stroke="'+top.c+'"/>'
+  +'<text x="226" y="67" fill="'+top.c+'" stroke="none" font-size="13" font-weight="700">'+top.t+'</text>'
+  +'<line x1="200" y1="84" x2="200" y2="106"/>'
+  +'<rect x="186" y="106" width="28" height="44" rx="4" stroke="'+bottom.c+'"/>'
+  +'<text x="226" y="133" fill="'+bottom.c+'" stroke="none" font-size="13" font-weight="700">'+bottom.t+'</text>'
+  +'<line x1="200" y1="150" x2="200" y2="170"/>'
+  +'<circle cx="200" cy="95" r="3.5" fill="#56f0c3" stroke="none"/>'
+  +'<line x1="200" y1="95" x2="320" y2="95" stroke="#56f0c3" stroke-dasharray="4 4"/>'
+  +'<line x1="320" y1="95" x2="320" y2="170" stroke="#56f0c3" stroke-dasharray="4 4"/>'
+  +'<line x1="200" y1="170" x2="320" y2="170"/>'
+  +'<text x="288" y="88" fill="#56f0c3" stroke="none" font-size="14" font-weight="700">U<tspan font-size="10" dy="4">ra</tspan></text>'
+  +'</svg>';
+};
+
+var QUESTIONS = [
+ { topic:"Khái niệm cảm biến",
+   q:"Cảm biến là thiết bị",
+   o:["biến đổi tín hiệu điện thành âm thanh, ánh sáng hoặc chuyển động.",
+      "cảm nhận các đại lượng vật lí (nhiệt độ, ánh sáng, áp suất…) và biến đổi chúng thành tín hiệu điện.",
+      "khuếch đại tín hiệu điện có biên độ nhỏ thành tín hiệu có biên độ lớn.",
+      "lưu trữ và xử lí thông tin dưới dạng tín hiệu số."],
+   a:1, e:"Cảm biến là khối đầu vào: nó cảm nhận sự thay đổi của đại lượng vật lí ở môi trường (ánh sáng, nhiệt độ, áp suất, âm thanh…) và biến đổi thành tín hiệu điện để bộ xử lí sử dụng. Việc biến tín hiệu điện thành âm thanh, ánh sáng hay chuyển động là của thiết bị đầu ra." },
+ { topic:"Hệ thống điện tử",
+   q:"Sơ đồ khối của một hệ thống điện tử đơn giản theo đúng thứ tự truyền tín hiệu là",
+   o:["Thiết bị đầu ra → Bộ xử lí → Cảm biến.","Bộ xử lí → Cảm biến → Thiết bị đầu ra.",
+      "Cảm biến → Thiết bị đầu ra → Bộ xử lí.","Cảm biến → Bộ xử lí → Thiết bị đầu ra."],
+   a:3, e:"Cảm biến (đầu vào) thu nhận thông tin và tạo tín hiệu điện → bộ xử lí xử lí tín hiệu → thiết bị đầu ra (đèn, loa, rơ-le, động cơ…) thực hiện tác động." },
+ { topic:"Khái niệm cảm biến",
+   q:"Thiết bị nào sau đây <b>không phải</b> là cảm biến?",
+   o:["Micro.","Loa.","Quang điện trở.","Điện trở nhiệt."],
+   a:1, e:"Loa biến tín hiệu điện thành âm thanh nên là thiết bị đầu ra. Micro biến âm thanh thành tín hiệu điện; quang điện trở và điện trở nhiệt biến đổi theo ánh sáng, nhiệt độ – đều là cảm biến." },
+ { topic:"Quang điện trở",
+   q:"Quang điện trở (LDR) là linh kiện có điện trở thay đổi theo",
+   o:["cường độ ánh sáng chiếu vào nó.","nhiệt độ của môi trường.","áp suất tác dụng lên nó.","cường độ dòng điện chạy qua nó."],
+   a:0, e:"LDR (Light Dependent Resistor) – điện trở phụ thuộc ánh sáng: giá trị điện trở thay đổi theo cường độ ánh sáng chiếu vào." },
+ { topic:"Quang điện trở",
+   q:"Khi cường độ ánh sáng chiếu vào quang điện trở tăng thì điện trở của nó",
+   o:["tăng.","không đổi.","giảm.","tăng rồi giảm."],
+   a:2, e:"Ánh sáng càng mạnh thì điện trở của quang điện trở càng nhỏ. Trong tối điện trở có thể lên tới cỡ MΩ, khi được chiếu sáng mạnh chỉ còn cỡ vài trăm Ω." },
+ { topic:"Quang điện trở",
+   q:"Quang điện trở thường được chế tạo từ",
+   o:["kim loại dẫn điện tốt như đồng.","chất cách điện như sứ.","hợp kim nicrom.","chất bán dẫn như cadimi sunfua (CdS)."],
+   a:3, e:"Quang điện trở được làm từ chất bán dẫn (phổ biến là CdS). Chất bán dẫn có mật độ hạt tải điện tăng mạnh khi hấp thụ ánh sáng." },
+ { topic:"Quang điện trở",
+   q:"Nguyên nhân làm điện trở của quang điện trở giảm khi được chiếu sáng là do",
+   o:["ánh sáng làm vật liệu nóng lên và giãn nở.",
+      "năng lượng ánh sáng giải phóng các electron liên kết thành hạt tải điện tự do, làm mật độ hạt tải điện tăng.",
+      "ánh sáng làm chiều dài của quang điện trở giảm.",
+      "ánh sáng tạo ra suất điện động cảm ứng trong quang điện trở."],
+   a:1, e:"Khi ánh sáng thích hợp chiếu vào chất bán dẫn, các electron liên kết nhận năng lượng và trở thành electron dẫn (đồng thời tạo lỗ trống) → số hạt tải điện tăng → điện trở giảm." },
+ { topic:"Điện trở nhiệt",
+   q:"Điện trở nhiệt (thermistor) là linh kiện",
+   o:["có điện trở thay đổi rõ rệt theo nhiệt độ.","có điện trở thay đổi theo cường độ ánh sáng.",
+      "biến nhiệt năng trực tiếp thành điện năng.","có điện trở luôn không đổi khi nhiệt độ thay đổi."],
+   a:0, e:"Thermistor = thermal + resistor: điện trở có giá trị phụ thuộc mạnh vào nhiệt độ, dùng làm cảm biến nhiệt độ." },
+ { topic:"Điện trở nhiệt",
+   q:"Điện trở nhiệt loại PTC có đặc điểm nào sau đây?",
+   o:["Điện trở giảm khi nhiệt độ tăng.","Điện trở không phụ thuộc vào nhiệt độ.",
+      "Điện trở tăng khi nhiệt độ tăng.","Chỉ hoạt động khi được chiếu sáng."],
+   a:2, e:"PTC (Positive Temperature Coefficient) – hệ số nhiệt điện trở dương: nhiệt độ tăng thì điện trở tăng." },
+ { topic:"Điện trở nhiệt",
+   q:"NTC là kí hiệu của điện trở nhiệt có",
+   o:["hệ số nhiệt điện trở dương, nhiệt độ tăng thì điện trở tăng.","điện trở không đổi theo nhiệt độ.",
+      "điện trở phụ thuộc vào ánh sáng.","hệ số nhiệt điện trở âm, nhiệt độ tăng thì điện trở giảm."],
+   a:3, e:"NTC = Negative Temperature Coefficient (hệ số nhiệt âm). Với NTC, khi nhiệt độ tăng thì điện trở giảm – đây là loại điện trở nhiệt phổ biến nhất." },
+ { topic:"Điện trở nhiệt",
+   q:"Đồ thị biểu diễn sự phụ thuộc của điện trở R của một điện trở nhiệt NTC vào nhiệt độ t có dạng",
+   o:["đường cong đi xuống: R giảm không tuyến tính khi t tăng.","đường thẳng đi qua gốc toạ độ.",
+      "đường thẳng song song với trục nhiệt độ.","đường cong đi lên: R tăng khi t tăng."],
+   a:0, e:"Với NTC, R giảm khi t tăng và sự phụ thuộc này không tuyến tính, nên đồ thị là một đường cong đi xuống (giảm nhanh ở vùng nhiệt độ thấp, chậm dần ở nhiệt độ cao)." },
+ { topic:"Mạch chia áp",
+   q:"Hai điện trở R<sub>1</sub> và R<sub>2</sub> mắc nối tiếp vào nguồn có hiệu điện thế U (mạch chia áp). Hiệu điện thế giữa hai đầu R<sub>2</sub> là",
+   o:['U<sub>2</sub> = U·'+F("R<sub>1</sub>","R<sub>1</sub> + R<sub>2</sub>"),
+      'U<sub>2</sub> = U·'+F("R<sub>2</sub>","R<sub>1</sub> + R<sub>2</sub>"),
+      'U<sub>2</sub> = U·'+F("R<sub>1</sub> + R<sub>2</sub>","R<sub>2</sub>"),
+      'U<sub>2</sub> = U·'+F("R<sub>1</sub>","R<sub>2</sub>")],
+   a:1, e:'Dòng điện chung I = '+F("U","R<sub>1</sub> + R<sub>2</sub>")+', nên U<sub>2</sub> = I·R<sub>2</sub> = U·'+F("R<sub>2</sub>","R<sub>1</sub> + R<sub>2</sub>")+'. Điện áp chia theo tỉ lệ thuận với điện trở.' },
+ { topic:"Mạch chia áp – Bài tập",
+   q:"Mạch chia áp gồm R<sub>1</sub> = 4 kΩ nối tiếp R<sub>2</sub> = 2 kΩ, mắc vào nguồn U = 12 V. Hiệu điện thế giữa hai đầu R<sub>2</sub> là",
+   o:["8 V.","6 V.","4 V.","3 V."],
+   a:2, e:'U<sub>2</sub> = 12·'+F("2","4 + 2")+' = 4 V.' },
+ { topic:"Mạch cảm biến ánh sáng",
+   q:"Một quang điện trở mắc nối tiếp với điện trở cố định R vào nguồn U không đổi (hình). Điện áp ra U<sub>ra</sub> lấy trên hai đầu R. Khi trời sáng dần lên thì U<sub>ra</sub>",
+   fig: circuit({t:"LDR",c:"#fbbf24"},{t:"R",c:"#cbd5ff"}),
+   o:["giảm.","không đổi.","giảm về 0.","tăng."],
+   a:3, e:"Trời sáng → điện trở LDR giảm → dòng điện I = U/(R<sub>LDR</sub> + R) tăng → U<sub>ra</sub> = I·R tăng. (Tổng điện áp không đổi nên điện áp trên LDR giảm)." },
+ { topic:"Mạch cảm biến ánh sáng – Bài tập",
+   q:"Một quang điện trở mắc nối tiếp với điện trở R = 1 kΩ vào nguồn U = 9 V. Khi được chiếu sáng, quang điện trở có giá trị 500 Ω. Hiệu điện thế giữa hai đầu quang điện trở lúc đó là",
+   o:["3 V.","6 V.","4,5 V.","1,5 V."],
+   a:0, e:'U<sub>LDR</sub> = 9·'+F("0,5","0,5 + 1")+' = 3 V (đổi 500 Ω = 0,5 kΩ).' },
+ { topic:"Mạch cảm biến nhiệt độ",
+   q:"Điện trở nhiệt NTC mắc nối tiếp với điện trở cố định R vào nguồn U không đổi. Điện áp ra lấy trên hai đầu NTC. Khi nhiệt độ tăng thì điện áp ra",
+   fig: circuit({t:"R",c:"#cbd5ff"},{t:"NTC",c:"#f87171"}),
+   o:["tăng.","giảm.","không đổi.","tăng rồi giảm."],
+   a:1, e:"Nhiệt độ tăng → điện trở NTC giảm → phần điện áp chia cho NTC, U·R<sub>NTC</sub>/(R + R<sub>NTC</sub>), giảm." },
+ { topic:"Mạch cảm biến nhiệt độ – Bài tập",
+   q:"Điện trở nhiệt NTC có giá trị 10 kΩ ở 25 °C, mắc nối tiếp với điện trở R = 10 kΩ vào nguồn U = 6 V. Khi nhiệt độ tăng làm điện trở NTC giảm còn 5 kΩ thì hiệu điện thế giữa hai đầu R là",
+   o:["2 V.","3 V.","4 V.","6 V."],
+   a:2, e:'U<sub>R</sub> = 6·'+F("10","10 + 5")+' = 4 V (tăng so với 3 V ở 25 °C).' },
+ { topic:"Ứng dụng",
+   q:"Hệ thống đèn đường tự động bật sáng khi trời tối và tắt khi trời sáng sử dụng linh kiện cảm biến nào?",
+   o:["Điện trở nhiệt.","Micro.","Cảm biến áp suất.","Quang điện trở."],
+   a:3, e:"Quang điện trở nhận biết mức độ sáng của môi trường: trời tối → điện trở LDR tăng → điện áp trong mạch chia áp thay đổi → bộ xử lí điều khiển bật đèn." },
+ { topic:"Ứng dụng",
+   q:"Điện trở nhiệt loại PTC thường được ứng dụng để",
+   o:["đo cường độ ánh sáng.","làm cầu chì tự phục hồi, bảo vệ mạch khi quá dòng hoặc quá nhiệt.",
+      "phát ra âm thanh trong thiết bị báo động.","lưu trữ dữ liệu trong máy tính."],
+   a:1, e:"Khi dòng quá lớn, PTC nóng lên → điện trở tăng vọt → hạn chế dòng điện, bảo vệ mạch. Khi nguội đi, điện trở trở lại nhỏ (tự phục hồi)." },
+ { topic:"Mạch cảm biến",
+   q:"Trong mạch cảm biến dùng mạch chia áp, người ta thường thay điện trở cố định bằng biến trở nhằm mục đích",
+   o:["điều chỉnh ngưỡng tác động (độ nhạy) của mạch.","tăng công suất của nguồn điện.",
+      "biến cảm biến thành thiết bị đầu ra.","không cần dùng đến nguồn điện."],
+   a:0, e:"Thay đổi giá trị biến trở làm thay đổi tỉ lệ chia áp, nhờ đó điều chỉnh được mức ánh sáng/nhiệt độ mà tại đó mạch bắt đầu tác động (ví dụ: đèn bật ở độ tối mong muốn)." }
+];
+QUESTIONS.forEach(function(Q){ Q.t = /Bài tập/.test(Q.topic) ? 30 : (Q.fig ? 25 : 20); });
+
+var AVATARS = [
+ {e:'🤖',n:'Rô-bốt',c:'#56f0c3'},
+ {e:'🦊',n:'Cáo lửa',c:'#ff9a4d'},
+ {e:'🐙',n:'Bạch tuộc',c:'#ff7ab6'},
+ {e:'🦄',n:'Kỳ lân',c:'#b69cff'},
+ {e:'🐲',n:'Rồng xanh',c:'#4ade80'},
+ {e:'🦉',n:'Cú đêm',c:'#d6a45a'},
+ {e:'🐼',n:'Gấu trúc',c:'#9fb8c4'},
+ {e:'🚀',n:'Tên lửa',c:'#ff6b6b'},
+ {e:'👾',n:'Người ngoài hành tinh',c:'#8be04e'},
+ {e:'🐸',n:'Ếch ộp',c:'#6ee7a0'},
+ {e:'🦖',n:'Khủng long',c:'#f0c23b'},
+ {e:'🧙',n:'Pháp sư',c:'#7aa2ff'}
+];
+var BOTS = [
+ {name:'Pika Điện',acc:.82,spd:.4},
+ {name:'Thánh Điện Trở',acc:.9,spd:.55},
+ {name:'Cô Ba LDR',acc:.7,spd:.3},
+ {name:'NTC Lạnh Lùng',acc:.6,spd:.25},
+ {name:'Bé Ôm Kế',acc:.5,spd:.45}
+];
+var BETS = [
+ {t:'An toàn',m:1,loss:0,d:'Giữ nguyên điểm tốc độ. Sai không bị trừ.'},
+ {t:'Cược',m:2,loss:200,d:'Đúng nhận gấp đôi điểm tốc độ. Sai bị trừ 200.'},
+ {t:'All-in',m:3,loss:400,d:'Đúng nhận gấp ba điểm tốc độ. Sai bị trừ 400.'}
+];
+var SHAPES = [
+ '<svg viewBox="0 0 32 32"><path d="M16 4 29 27H3z"/></svg>',
+ '<svg viewBox="0 0 32 32"><path d="M16 2 30 16 16 30 2 16z"/></svg>',
+ '<svg viewBox="0 0 32 32"><circle cx="16" cy="16" r="13"/></svg>',
+ '<svg viewBox="0 0 32 32"><rect x="4" y="4" width="24" height="24" rx="2"/></svg>'
+];
+
+/* ===================== TRẠNG THÁI ===================== */
+var G = null;
+var SID = 0, raf = 0;
+var profile = Object.assign({name:'',av:0,n:10,best:{}}, store.get('dtcb-profile',{}));
+if(!(profile.av>=0 && profile.av<AVATARS.length)) profile.av = 0;
+if(profile.n!==10 && profile.n!==20) profile.n = 10;
+if(!profile.best || typeof profile.best!=='object') profile.best = {};
+
+function later(fn,ms){ var sid=SID; return setTimeout(function(){ if(sid===SID) fn(); },ms); }
+function resetSession(){ SID++; cancelAnimationFrame(raf); }
+function stopTimer(){ cancelAnimationFrame(raf); }
+function runTimer(ms,onFrame,onEnd){
+  var sid=SID, t0=performance.now();
+  cancelAnimationFrame(raf);
+  var loop=function(){
+    if(sid!==SID) return;
+    var el=performance.now()-t0;
+    if(el>=ms){ onFrame(ms); onEnd(); return; }
+    onFrame(el); raf=requestAnimationFrame(loop);
+  };
+  raf=requestAnimationFrame(loop);
+}
+function countTo(el,a,b,ms){
+  var t0=performance.now();
+  (function f(){
+    var p=Math.min(1,(performance.now()-t0)/ms);
+    el.textContent = nf(a+(b-a)*(1-Math.pow(1-p,3)));
+    if(p<1) requestAnimationFrame(f);
+  })();
+}
+
+var GAME_SCREENS = ['s-wait','s-bet','s-q','s-fb','s-board','s-wheel'];
+function show(id){
+  $$('.screen').forEach(function(s){ s.hidden = s.id!==id; });
+  window.scrollTo(0,0);
+  var inGame = GAME_SCREENS.indexOf(id)>-1 && G;
+  $('#brand').hidden = !!inGame;
+  $('#hudMe').hidden = !inGame;
+  $('#hudQ').hidden = !(inGame && id!=='s-wait');
+  $('#hudScoreWrap').hidden = !(inGame && id!=='s-wait');
+  $('#exitBtn').hidden = !inGame;
+  if(!inGame){ $('#hudStreak').hidden=true; $('#hudShield').hidden=true; }
+  updateHud();
+}
+function updateHud(){
+  if(!G) return;
+  var me=G.me;
+  $('#hudMe').innerHTML = '<span class="hav" style="--c:'+me.c+'">'+me.e+'</span><b>'+esc(me.name)+'</b>';
+  $('#hudQ').textContent = 'Câu '+Math.min(G.i+1,G.n)+'/'+G.n;
+  $('#hudScore').textContent = nf(me.score);
+  var showHud = !$('#hudScoreWrap').hidden;
+  $('#hudStreak').hidden = !(showHud && me.streak>1);
+  $('#hudStreak').textContent = 'Chuỗi '+me.streak;
+  $('#hudShield').hidden = !(showHud && me.shield);
+}
+
+/* ===================== TRANG CHỦ ===================== */
+function buildHome(){
+  $('#nameInput').value = profile.name || '';
+  var grid=$('#avGrid'); grid.innerHTML='';
+  AVATARS.forEach(function(a,i){
+    var b=document.createElement('button');
+    b.type='button'; b.className='av'; b.style.setProperty('--c',a.c);
+    b.setAttribute('aria-pressed', i===profile.av?'true':'false');
+    b.innerHTML='<span class="ae">'+a.e+'</span><span class="an">'+esc(a.n)+'</span>';
+    b.addEventListener('click',function(){
+      profile.av=i; sfx.click();
+      $$('.av').forEach(function(x,j){ x.setAttribute('aria-pressed', j===i?'true':'false'); });
+    });
+    grid.appendChild(b);
+  });
+  $$('#seg button').forEach(function(b){
+    b.setAttribute('aria-pressed', Number(b.dataset.n)===profile.n?'true':'false');
+    b.onclick=function(){
+      profile.n=Number(b.dataset.n); sfx.click();
+      $$('#seg button').forEach(function(x){ x.setAttribute('aria-pressed', x===b?'true':'false'); });
+      renderBest();
+    };
+  });
+  renderBest();
+}
+function renderBest(){
+  var b=profile.best[profile.n];
+  $('#bestLine').textContent = b ? 'Kỷ lục '+profile.n+' câu của bạn: '+nf(b)+' điểm' : 'Chưa có kỷ lục cho chế độ '+profile.n+' câu.';
+}
+
+/* ===================== VÁN CHƠI ===================== */
+function makePlayer(name,e,c,isMe){
+  return {name:name,e:e,c:c,isMe:isMe,score:0,prev:0,streak:0,best:0,shield:false,acc:.6,spd:.4,_row:null};
+}
+function newGame(n){
+  resetSession();
+  var idx=shuffle(QUESTIONS.map(function(_,i){ return i; })).slice(0,n);
+  var av=AVATARS[profile.av];
+  var me=makePlayer(profile.name,av.e,av.c,true);
+  var pool=shuffle(AVATARS.filter(function(_,i){ return i!==profile.av; })).slice(0,BOTS.length);
+  var bots=BOTS.map(function(b,i){ var p=makePlayer(b.name,pool[i].e,pool[i].c,false); p.acc=b.acc; p.spd=b.spd; return p; });
+  var pin=String(Math.floor(100000+Math.random()*900000));
+  G={
+    n:n,
+    qs:idx.map(function(qi){ return {qi:qi,perm:shuffle([0,1,2,3])}; }),
+    i:0, me:me, players:[me].concat(bots), pin:pin.slice(0,3)+' '+pin.slice(3),
+    joined:1, golden:false, cur:null, log:[], wheelDeg:0,
+    stats:{correct:0,wrong:0,bonus:0,penalty:0,fastest:Infinity,betsWon:0,betsLost:0}
+  };
+}
+
+/* ----- Phòng chờ ----- */
+function renderJoined(){
+  var box=$('#joined'); box.innerHTML='';
+  G.players.slice(0,G.joined).forEach(function(p){
+    var d=document.createElement('span');
+    d.className='jchip'+(p.isMe?' me':'');
+    d.innerHTML='<span class="hav" style="--c:'+p.c+'">'+p.e+'</span>'+esc(p.name);
+    box.appendChild(d);
+  });
+  $('#waitCount').textContent = G.joined+'/'+G.players.length+' người chơi đã vào phòng';
+}
+function showWait(){
+  $('#pin').textContent=G.pin;
+  $('#cdBig').hidden=true;
+  $('#skipWait').hidden=false;
+  renderJoined();
+  show('s-wait');
+  G.players.slice(1).forEach(function(b,i){
+    later(function(){ G.joined=i+2; renderJoined(); sfx.join(); },700+i*650);
+  });
+  later(startCountdown,700+BOTS.length*650+400);
+}
+function startCountdown(){
+  $('#skipWait').hidden=true;
+  var big=$('#cdBig'); big.hidden=false;
+  ['3','2','1','Bắt đầu!'].forEach(function(t,i){
+    later(function(){
+      big.textContent=t; big.style.animation='none'; void big.offsetWidth; big.style.animation='';
+      if(i<3) sfx.tick(); else sfx.go();
+    },i*850);
+  });
+  later(startRound,4*850);
+}
+
+/* ----- Bắt đầu câu hỏi: màn cược ----- */
+function startRound(){
+  var q=G.qs[G.i];
+  G.players.forEach(function(p){ p.prev=p.score; });
+  G.golden = Math.random()<.2;
+  G.cur={q:q,Q:QUESTIONS[q.qi],bet:0,betLocked:false,answered:false,chosen:null,res:null,boxOpened:false};
+  showBet();
+}
+function showBet(){
+  var c=G.cur;
+  $('#betNo').textContent='Câu '+(G.i+1)+' / '+G.n;
+  $('#betTopic').textContent='Chủ đề: '+c.Q.topic;
+  $('#betGold').hidden=!G.golden;
+  var box=$('#betOpts'); box.innerHTML='';
+  BETS.forEach(function(b,i){
+    var el=document.createElement('button');
+    el.type='button'; el.className='bet b'+i;
+    el.innerHTML='<span class="bt">'+b.t+'</span><span class="bm">×'+b.m+'</span><span class="bd">'+b.d+'</span>';
+    el.addEventListener('click',function(){ chooseBet(i); });
+    box.appendChild(el);
+  });
+  show('s-bet');
+  $('#betTbar').className='tbar';
+  runTimer(6000,function(el){
+    $('#betBar').style.width=(100-el/60)+'%';
+    $('#betSec').textContent=Math.max(1,Math.ceil((6000-el)/1000));
+  },function(){ chooseBet(0); });
+}
+function chooseBet(i){
+  var c=G.cur; if(!c||c.betLocked) return;
+  c.betLocked=true; stopTimer(); c.bet=i; sfx.click();
+  showQuestion();
+}
+
+/* ----- Câu hỏi ----- */
+function showQuestion(){
+  var c=G.cur, Q=c.Q;
+  c.T=Q.t*1000; c.answered=false;
+  $('#qText').innerHTML=Q.q;
+  var fig=$('#qFig'); fig.innerHTML=Q.fig||''; fig.hidden=!Q.fig;
+  var chips='';
+  if(c.bet>0) chips+='<span class="pill streak">'+BETS[c.bet].t+' ×'+BETS[c.bet].m+'</span>';
+  if(G.golden) chips+='<span class="pill streak">Giờ vàng ×1,5</span>';
+  $('#qChips').innerHTML=chips;
+  var box=$('#answers'); box.innerHTML='';
+  c.q.perm.forEach(function(oi,pos){
+    var b=document.createElement('button');
+    b.type='button'; b.className='ans'; b.dataset.c=pos; b.dataset.oi=oi;
+    b.innerHTML='<span class="shape">'+SHAPES[pos]+'</span><span class="atext">'+Q.o[oi]+'</span>';
+    b.addEventListener('click',function(){ answer(oi); });
+    box.appendChild(b);
+  });
+  $('#locked').textContent='';
+  show('s-q');
+  c.t0=performance.now();
+  var lastSec=-1;
+  runTimer(c.T,function(el){
+    var left=c.T-el, pct=left/c.T*100, sec=Math.ceil(left/1000);
+    $('#qBar').style.width=pct+'%';
+    $('#qSec').textContent=sec;
+    var cls = pct<20?'danger':(pct<45?'warn':'');
+    $('#qSec').className='qsec '+cls; $('#qTbar').className='tbar '+cls;
+    if(sec!==lastSec){ lastSec=sec; if(sec<=5 && sec>0) sfx.tick(); }
+  },timeUp);
+}
+function lockOptions(oi){
+  $$('#answers .ans').forEach(function(b){
+    b.disabled=true;
+    if(oi!==null && Number(b.dataset.oi)===oi) b.classList.add('picked'); else b.classList.add('dim');
+  });
+}
+function answer(oi){
+  var c=G.cur; if(!c||c.answered) return;
+  c.answered=true; stopTimer();
+  c.chosen=oi; c.tUsed=Math.min(c.T,performance.now()-c.t0);
+  lockOptions(oi); sfx.click();
+  $('#locked').textContent='Đã chốt đáp án. Đang chờ các đối thủ…';
+  later(finishQuestion,800);
+}
+function timeUp(){
+  var c=G.cur; if(!c||c.answered) return;
+  c.answered=true; c.chosen=null; c.tUsed=c.T;
+  lockOptions(null);
+  $('#locked').textContent='Hết giờ!';
+  later(finishQuestion,700);
+}
+
+/* ----- Tính điểm ----- */
+function speedPts(frac){ return Math.round((1-frac/2)*1000); }
+function lose(p,a){
+  if(p.shield){ p.shield=false; return {delta:0,blocked:true}; }
+  var l=Math.min(p.score,a); p.score-=l;
+  if(p.isMe) G.stats.penalty+=l;
+  return {delta:-l,blocked:false};
+}
+function gain(p,a){ p.score+=a; if(p.isMe) G.stats.bonus+=a; return a; }
+
+function botRound(Q,dist){
+  var gold=G.golden?1.5:1;
+  G.players.forEach(function(b){
+    if(b.isMe) return;
+    var acc=b.acc-(/Bài tập/.test(Q.topic)?.12:0);
+    var ok=Math.random()<acc, choice=Q.a;
+    if(!ok){ var w=[0,1,2,3].filter(function(x){ return x!==Q.a; }); choice=w[Math.floor(Math.random()*3)]; }
+    dist[choice]++;
+    var tf=Math.min(.95,Math.max(.08,.1+(.78-b.spd*.7)*Math.random()));
+    var bet=Math.random()<.22?(Math.random()<.7?1:2):0;
+    if(ok){
+      b.streak++; b.best=Math.max(b.best,b.streak);
+      b.score+=Math.round(speedPts(tf)*BETS[bet].m*gold)+Math.min(b.streak-1,5)*100;
+      if(Math.random()<.28){
+        var ev=[100,200,300,-100,-150][Math.floor(Math.random()*5)];
+        if(ev>0) b.score+=ev; else b.score=Math.max(0,b.score+ev);
+      }
+    } else {
+      b.streak=0;
+      if(BETS[bet].loss) b.score=Math.max(0,b.score-BETS[bet].loss);
+    }
+  });
+}
+
+function finishQuestion(){
+  var c=G.cur, Q=c.Q, me=G.me, bet=BETS[c.bet];
+  var ok=(c.chosen===Q.a);
+  var r={ok:ok,timeout:c.chosen===null,tUsed:c.tUsed,bet:c.bet,gold:G.golden,base:0,mult:1,pts:0,streakBonus:0,penalty:0,blocked:false};
+  if(ok){
+    me.streak++; me.best=Math.max(me.best,me.streak);
+    r.base=speedPts(c.tUsed/c.T);
+    r.mult=bet.m*(G.golden?1.5:1);
+    r.pts=Math.round(r.base*r.mult);
+    r.streakBonus=Math.min(me.streak-1,5)*100;
+    me.score+=r.pts+r.streakBonus;
+    G.stats.correct++;
+    G.stats.fastest=Math.min(G.stats.fastest,c.tUsed);
+    if(c.bet>0) G.stats.betsWon++;
+  } else {
+    me.streak=0; G.stats.wrong++;
+    if(c.bet>0){ G.stats.betsLost++; }
+    if(bet.loss){ var l=lose(me,bet.loss); r.penalty=-l.delta; r.blocked=l.blocked; }
+  }
+  var dist=[0,0,0,0];
+  if(c.chosen!==null) dist[c.chosen]++;
+  botRound(Q,dist);
+  c.res=r; c.dist=dist;
+  G.log.push({qi:c.q.qi,chosen:c.chosen,ok:ok});
+  renderFeedback();
+}
+
+/* ----- Màn phản hồi ----- */
+function renderFeedback(){
+  var c=G.cur, r=c.res, Q=c.Q, me=G.me;
+  $('#fbHero').className='fb-hero '+(r.ok?'good':'bad');
+  $('#fbTitle').textContent = r.ok?'Chính xác!':(r.timeout?'Hết giờ!':'Chưa đúng');
+  var total=r.ok ? r.pts+r.streakBonus : -r.penalty;
+  $('#fbPts').textContent = r.ok ? sgn(total) : (r.penalty?sgn(-r.penalty):'+0');
+  $('#fbSub').textContent = r.ok ? 'Trả lời sau '+dec1(r.tUsed/1000)+' giây.' :
+    (r.blocked ? 'Khiên của bạn đã chặn lần trừ điểm này.' : (r.penalty ? 'Bạn bị trừ điểm vì cược thua.' : 'Không bị trừ điểm.'));
+  var rows='';
+  if(r.ok){
+    rows+='<div><span>Điểm tốc độ ('+dec1(r.tUsed/1000)+' giây)</span><b>'+sgn(r.base)+'</b></div>';
+    if(r.gold) rows+='<div><span>Giờ vàng</span><b>×1,5</b></div>';
+    if(r.bet>0) rows+='<div><span>'+BETS[r.bet].t+'</span><b>×'+BETS[r.bet].m+'</b></div>';
+    if(r.mult!==1) rows+='<div class="pos"><span>Điểm câu này</span><b>'+sgn(r.pts)+'</b></div>';
+    rows+='<div class="pos"><span>Chuỗi '+me.streak+' câu</span><b>'+sgn(r.streakBonus)+'</b></div>';
+  } else {
+    rows+='<div><span>Điểm câu này</span><b>+0</b></div>';
+    rows+='<div><span>Chuỗi bị ngắt</span><b>0</b></div>';
+    if(r.bet>0){
+      rows+= r.blocked ? '<div><span>'+BETS[r.bet].t+' thua, khiên chặn</span><b>0</b></div>'
+                       : '<div class="neg"><span>'+BETS[r.bet].t+' thua</span><b>'+sgn(-r.penalty)+'</b></div>';
+    }
+  }
+  rows+='<div class="tot"><span>Tổng điểm hiện có</span><b id="fbTotal">'+nf(me.score)+'</b></div>';
+  $('#fbBrk').innerHTML=rows;
+  var maxd=Math.max(1,Math.max.apply(null,c.dist));
+  var dh='';
+  c.q.perm.forEach(function(oi,pos){
+    dh+='<div class="dcol'+(oi===Q.a?' right':'')+'" data-c="'+pos+'"><div class="dbar" style="height:'+(c.dist[oi]/maxd*100)+'%"></div><div class="dn">'+c.dist[oi]+(oi===Q.a?' ✓':'')+'</div></div>';
+  });
+  $('#fbDist').innerHTML=dh;
+  $('#fbExplain').innerHTML='<div class="ca">Đáp án đúng: '+Q.o[Q.a]+'</div><div>'+Q.e+'</div>';
+  var bz=$('#boxZone');
+  if(r.ok){
+    bz.hidden=false;
+    bz.innerHTML='<div class="lbl">Phần thưởng cho câu trả lời đúng</div><button class="mbtn" id="boxBtn" type="button"><span class="gift">🎁</span>Mở hộp bí ẩn</button><p class="hint">Có thể cộng điểm, nhân đôi, cướp điểm, nhận khiên, nhưng cũng có thể dính bom.</p>';
+    $('#boxBtn').addEventListener('click',openBox);
+    $('#fbNext').disabled=true;
+  } else {
+    bz.hidden=true; bz.innerHTML='';
+    $('#fbNext').disabled=false;
+  }
+  $('#fbNext').textContent='Bảng xếp hạng';
+  show('s-fb');
+  if(r.ok) sfx.good(); else sfx.bad();
+}
+
+/* ----- Hộp bí ẩn ----- */
+function topOther(){ return G.players.filter(function(p){ return !p.isMe; }).sort(function(a,b){ return b.score-a.score; })[0]; }
+var BOX = [
+ {w:18,e:'🎁',t:'Quà nhỏ',run:function(){ gain(G.me,100); return {d:100,x:'Nhận thêm 100 điểm.',k:'good'}; }},
+ {w:10,e:'💰',t:'Túi vàng',run:function(){ gain(G.me,250); return {d:250,x:'Nhận thêm 250 điểm.',k:'good'}; }},
+ {w:3,e:'💎',t:'Jackpot!',run:function(){ gain(G.me,500); return {d:500,x:'Trúng độc đắc, nhận 500 điểm.',k:'jack'}; }},
+ {w:8,e:'⚡',t:'Nhân đôi',run:function(){ var a=G.cur.res.pts; gain(G.me,a); return {d:a,x:'Điểm của câu này được nhân đôi, thêm '+nf(a)+' điểm.',k:'good'}; }},
+ {w:7,e:'🥷',t:'Cướp điểm',run:function(){
+    var v=topOther(), a=Math.min(200,v.score);
+    if(!a){ gain(G.me,100); return {d:100,x:'Chưa ai có điểm để cướp, bạn nhận 100 điểm.',k:'good'}; }
+    v.score-=a; gain(G.me,a);
+    return {d:a,x:'Cướp '+nf(a)+' điểm từ '+v.name+'.',k:'good'};
+ }},
+ {w:7,e:'🛡️',t:'Khiên bảo vệ',run:function(){ G.me.shield=true; return {d:0,x:'Khiên sẽ chặn lần trừ điểm tiếp theo của bạn.',k:'neutral'}; }},
+ {w:10,e:'💣',t:'Bom nổ!',run:function(){
+    var r=lose(G.me,150);
+    return r.blocked ? {d:0,x:'Khiên đã chặn quả bom, bạn không mất điểm.',k:'neutral'} : {d:r.delta,x:'Bạn mất '+nf(-r.delta)+' điểm.',k:'bad'};
+ }},
+ {w:3,e:'🌀',t:'Hoán đổi',run:function(){
+    var bots=G.players.filter(function(p){ return !p.isMe; });
+    var o=bots[Math.floor(Math.random()*bots.length)], old=G.me.score;
+    G.me.score=o.score; o.score=old;
+    var d=G.me.score-old;
+    if(d>0) G.stats.bonus+=d; else if(d<0) G.stats.penalty+=-d;
+    return {d:d,x:'Đổi điểm với '+o.name+'. Bạn có '+nf(G.me.score)+' điểm.',k:d>=0?'good':'bad'};
+ }},
+ {w:4,e:'🕳️',t:'Hố đen',run:function(){
+    var r=lose(G.me,300);
+    return r.blocked ? {d:0,x:'Khiên đã chặn hố đen, bạn không mất điểm.',k:'neutral'} : {d:r.delta,x:'Hố đen nuốt '+nf(-r.delta)+' điểm của bạn.',k:'bad'};
+ }}
+];
+function openBox(){
+  var c=G.cur; if(c.boxOpened) return;
+  c.boxOpened=true;
+  var o=pickWeighted(BOX), res=o.run();
+  var bz=$('#boxZone');
+  bz.innerHTML='<div class="reveal '+res.k+'"><div class="big">'+o.e+'</div><h3>'+o.t+'</h3><div class="d">'+(res.d?sgn(res.d):'0')+'</div><p>'+esc(res.x)+'</p></div>';
+  if(res.k==='jack'){ sfx.jackpot(); confetti(); }
+  else if(res.k==='bad'){ sfx.boom(); }
+  else sfx.open();
+  var tot=$('#fbTotal'); if(tot) tot.textContent=nf(G.me.score);
+  updateHud();
+  $('#fbNext').disabled=false;
+}
+
+/* ----- Bảng xếp hạng ----- */
+var ROW_H=66;
+function showBoard(){
+  var P=G.players, idx=function(p){ return P.indexOf(p); };
+  var byPrev=P.slice().sort(function(a,b){ return b.prev-a.prev||idx(a)-idx(b); });
+  var byNow=P.slice().sort(function(a,b){ return b.score-a.score||idx(a)-idx(b); });
+  var wrap=$('#boardList'); wrap.style.height=(P.length*ROW_H)+'px'; wrap.innerHTML='';
+  P.forEach(function(p){
+    var row=document.createElement('div');
+    var pr=byPrev.indexOf(p);
+    row.className='row'+(p.isMe?' me':'');
+    row.style.transform='translateY('+(pr*ROW_H)+'px)';
+    row.innerHTML='<span class="rk">'+(pr+1)+'</span><span class="hav" style="--c:'+p.c+'">'+p.e+'</span><span class="rn">'+esc(p.name)+(p.isMe?' (bạn)':'')+'</span><span class="rd"></span><span class="rs">'+nf(p.prev)+'</span>';
+    p._row=row; wrap.appendChild(row);
+  });
+  $('#boardSub').textContent='Sau câu '+(G.i+1)+' / '+G.n;
+  var last=(G.i+1>=G.n), check=(!last && (G.i+1)%5===0);
+  $('#boardNext').textContent = last ? 'Xem kết quả chung cuộc' : (check ? 'Đến vòng quay may rủi' : 'Câu tiếp theo');
+  $('#gapLine').textContent='';
+  show('s-board');
+  later(function(){
+    byNow.forEach(function(p,i){
+      p._row.style.transform='translateY('+(i*ROW_H)+'px)';
+      p._row.querySelector('.rk').textContent=i+1;
+      var d=p.score-p.prev, rd=p._row.querySelector('.rd');
+      rd.textContent = d?sgn(d):'';
+      rd.className='rd '+(d>0?'up':(d<0?'down':''));
+      countTo(p._row.querySelector('.rs'),p.prev,p.score,900);
+    });
+    var mr=byNow.indexOf(G.me);
+    if(mr===0){
+      var s=byNow[1];
+      $('#gapLine').textContent='Bạn đang dẫn đầu, hơn '+s.name+' '+nf(G.me.score-s.score)+' điểm.';
+    } else {
+      var t=byNow[mr-1];
+      $('#gapLine').textContent='Bạn đang hạng '+(mr+1)+'. Cần thêm '+nf(t.score-G.me.score)+' điểm để vượt '+t.name+'.';
+    }
+  },500);
+}
+
+/* ----- Vòng quay ----- */
+var WHEEL = [
+ {l:'+200',c:'#1f8a3b',t:'#fff',run:function(){ gain(G.me,200); return {d:200,x:'Nhận thêm 200 điểm.',k:'good'}; }},
+ {l:'−150',c:'#d62f47',t:'#fff',run:function(){ var r=lose(G.me,150); return r.blocked?{d:0,x:'Khiên đã chặn, bạn không mất điểm.',k:'neutral'}:{d:r.delta,x:'Bạn mất '+nf(-r.delta)+' điểm.',k:'bad'}; }},
+ {l:'+500',c:'#2a6fd1',t:'#fff',run:function(){ gain(G.me,500); return {d:500,x:'Nhận thêm 500 điểm.',k:'good'}; }},
+ {l:'×1,25',c:'#f2b705',t:'#2a2000',run:function(){ var a=Math.round(G.me.score*.25); gain(G.me,a); return {d:a,x:'Tổng điểm nhân 1,25, bạn nhận thêm '+nf(a)+' điểm.',k:'good'}; }},
+ {l:'+100',c:'#1f8a3b',t:'#fff',run:function(){ gain(G.me,100); return {d:100,x:'Nhận thêm 100 điểm.',k:'good'}; }},
+ {l:'−20%',c:'#d62f47',t:'#fff',run:function(){ var a=Math.round(G.me.score*.2), r=lose(G.me,a); return r.blocked?{d:0,x:'Khiên đã chặn, bạn không mất điểm.',k:'neutral'}:{d:r.delta,x:'Bạn mất 20% tổng điểm, tức '+nf(-r.delta)+' điểm.',k:'bad'}; }},
+ {l:'+1000',c:'#2a6fd1',t:'#fff',run:function(){ gain(G.me,1000); return {d:1000,x:'Trúng độc đắc, nhận 1000 điểm.',k:'jack'}; }},
+ {l:'Cướp 300',c:'#f2b705',t:'#2a2000',run:function(){
+    var v=topOther(), a=Math.min(300,v.score);
+    if(!a){ gain(G.me,150); return {d:150,x:'Chưa ai có điểm để cướp, bạn nhận 150 điểm.',k:'good'}; }
+    v.score-=a; gain(G.me,a);
+    return {d:a,x:'Cướp '+nf(a)+' điểm từ '+v.name+'.',k:'good'};
+ }}
+];
+function buildWheel(){
+  var cx=160, cy=160, R=150, n=WHEEL.length, step=360/n, s='';
+  var pt=function(deg,r){ var a=(deg-90)*Math.PI/180; return (cx+r*Math.cos(a)).toFixed(2)+' '+(cy+r*Math.sin(a)).toFixed(2); };
+  WHEEL.forEach(function(w,i){
+    var a0=i*step, a1=(i+1)*step;
+    s+='<path d="M'+cx+' '+cy+' L'+pt(a0,R)+' A'+R+' '+R+' 0 0 1 '+pt(a1,R)+' Z" fill="'+w.c+'" stroke="#05171a" stroke-width="3"/>';
+    var mid=a0+step/2;
+    s+='<g transform="rotate('+mid+' '+cx+' '+cy+')"><text x="'+cx+'" y="'+(cy-98)+'" text-anchor="middle" dominant-baseline="middle" font-family="JetBrains Mono, monospace" font-weight="700" font-size="'+(w.l.length>6?15:20)+'" fill="'+w.t+'">'+w.l+'</text></g>';
+  });
+  s+='<circle cx="'+cx+'" cy="'+cy+'" r="22" fill="#05171a" stroke="#f2a950" stroke-width="4"/>';
+  s+='<circle cx="'+cx+'" cy="'+cy+'" r="150" fill="none" stroke="#f2a950" stroke-width="5"/>';
+  $('#wheelSvg').innerHTML=s;
+}
+function showWheel(){
+  $('#wheelAt').textContent=G.i+1;
+  $('#wheelRes').innerHTML='<p class="hint">Mỗi ô có xác suất như nhau. Có thể lên hạng, cũng có thể tụt hạng.</p>';
+  $('#spinBtn').hidden=false; $('#spinBtn').disabled=false;
+  $('#wheelNext').hidden=true;
+  buildWheel();
+  $('#wheelSvg').style.transition='none';
+  $('#wheelSvg').style.transform='rotate('+(G.wheelDeg%360)+'deg)';
+  void $('#wheelSvg').getBoundingClientRect();
+  $('#wheelSvg').style.transition='';
+  show('s-wheel');
+}
+function spin(){
+  var btn=$('#spinBtn'); if(btn.disabled) return;
+  btn.disabled=true; ac();
+  var idx=Math.floor(Math.random()*WHEEL.length), step=360/WHEEL.length;
+  var center=idx*step+step/2, jitter=(Math.random()-.5)*step*.6;
+  var target=((360-center+jitter)%360+360)%360;
+  var cur=G.wheelDeg%360;
+  var next=G.wheelDeg+360*5+(((target-cur)%360)+360)%360;
+  G.wheelDeg=next;
+  $('#wheelSvg').style.transform='rotate('+next+'deg)';
+  var total=4600, ticks=26;
+  for(var k=0;k<ticks;k++){
+    (function(k){ later(function(){ sfx.spin(); },total*(1-Math.pow(1-k/ticks,2.2))); })(k);
+  }
+  later(function(){
+    var w=WHEEL[idx], res=w.run();
+    $('#wheelRes').innerHTML='<div class="reveal '+res.k+'"><h3>'+esc(w.l)+'</h3><div class="d">'+(res.d?sgn(res.d):'0')+'</div><p>'+esc(res.x)+'</p></div>';
+    if(res.k==='jack'){ sfx.jackpot(); confetti(); } else if(res.k==='bad'){ sfx.boom(); } else sfx.open();
+    updateHud();
+    btn.hidden=true; $('#wheelNext').hidden=false;
+  },total+150);
+}
+
+/* ----- Kết thúc ----- */
+function showFinal(){
+  stopTimer();
+  var P=G.players, me=G.me;
+  var sorted=P.slice().sort(function(a,b){ return b.score-a.score||P.indexOf(a)-P.indexOf(b); });
+  var rank=sorted.indexOf(me)+1;
+  var st=G.stats;
+  var prevBest=profile.best[G.n]||0, newBest=me.score>prevBest;
+  if(newBest){ profile.best[G.n]=me.score; store.set('dtcb-profile',profile); }
+  $('#finTitle').textContent='Hạng '+rank+' / '+P.length+' · '+nf(me.score)+' điểm';
+  var msg = rank===1 ? 'Bạn vô địch phòng này. Điện áp ra của bạn đang ở mức cao nhất.' :
+            rank<=3 ? 'Bạn đã lên bục. Thêm một chút tốc độ hoặc một lần cược đúng là có thể lên đầu.' :
+            'Chưa lên bục lần này. Xem lại các câu sai bên dưới rồi đấu lại nhé.';
+  if(newBest && prevBest>0) msg+=' Đây là kỷ lục mới của bạn.';
+  $('#finMsg').textContent=msg;
+  var order=[1,0,2], cls=['p1','p2','p3'];
+  var ph='';
+  order.forEach(function(oi){
+    var p=sorted[oi];
+    ph+='<div class="pod '+cls[oi]+(p.isMe?' me':'')+'"><span class="hav" style="--c:'+p.c+'">'+p.e+'</span><div class="pn">'+esc(p.name)+'</div><div class="ps">'+nf(p.score)+'</div><div class="blk">'+(oi+1)+'</div></div>';
+  });
+  $('#podium').innerHTML=ph;
+  var acc=Math.round(st.correct/G.n*100);
+  $('#finStats').innerHTML=
+    '<div class="stat"><b>'+st.correct+'/'+G.n+'</b><small>Câu đúng ('+acc+'%)</small></div>'+
+    '<div class="stat"><b>'+me.best+'</b><small>Chuỗi đúng dài nhất</small></div>'+
+    '<div class="stat"><b>'+(isFinite(st.fastest)?dec1(st.fastest/1000)+' s':'—')+'</b><small>Câu đúng nhanh nhất</small></div>'+
+    '<div class="stat"><b>'+sgn(st.bonus)+'</b><small>Điểm thưởng may mắn</small></div>'+
+    '<div class="stat"><b>'+sgn(-st.penalty)+'</b><small>Điểm bị trừ</small></div>'+
+    '<div class="stat"><b>'+st.betsWon+' thắng · '+st.betsLost+' thua</b><small>Cược và All-in</small></div>';
+  var rl='';
+  sorted.forEach(function(p,i){
+    rl+='<div class="rr'+(p.isMe?' me':'')+'"><span class="rk">'+(i+1)+'</span><span class="hav" style="--c:'+p.c+'">'+p.e+'</span><span class="rn">'+esc(p.name)+(p.isMe?' (bạn)':'')+'</span><span class="rs">'+nf(p.score)+'</span></div>';
+  });
+  $('#finRank').innerHTML=rl;
+  var rv='', wrong=0;
+  G.log.forEach(function(L,i){
+    var Q=QUESTIONS[L.qi]; if(!L.ok) wrong++;
+    rv+='<div class="ritem'+(L.ok?'':' bad')+'"><div class="rq">Câu '+(i+1)+'. '+Q.q+'</div>'+
+      '<div>Bạn chọn: <span class="'+(L.ok?'g':'r')+'">'+(L.chosen===null?'(hết giờ)':Q.o[L.chosen])+'</span></div>'+
+      (L.ok?'':'<div>Đáp án đúng: <span class="g">'+Q.o[Q.a]+'</span></div>')+
+      '<div class="re">'+Q.e+'</div></div>';
+  });
+  $('#finReview').innerHTML=rv;
+  $('#finReviewSum').textContent='Xem lại đáp án ('+wrong+' câu sai)';
+  $('#finReviewBox').open = wrong>0;
+  show('s-final');
+  if(rank<=3){ sfx.jackpot(); confetti(); } else sfx.open();
+}
+
+/* ===================== PHÁO GIẤY ===================== */
+function confetti(){
+  var c=$('#confetti'), x=null;
+  try{ x=c.getContext('2d'); }catch(e){ x=null; }
+  if(!x) return;
+  c.width=window.innerWidth; c.height=window.innerHeight;
+  var cols=['#56f0c3','#f2a950','#d62f47','#2a6fd1','#f2b705','#38d27a'];
+  var P=[], i;
+  for(i=0;i<170;i++){
+    P.push({x:Math.random()*c.width,y:-20-Math.random()*c.height*.5,w:6+Math.random()*6,h:8+Math.random()*8,
+      vy:2+Math.random()*4,vx:-2+Math.random()*4,r:Math.random()*6,vr:-.2+Math.random()*.4,c:cols[Math.floor(Math.random()*cols.length)]});
+  }
+  var f=0;
+  (function loop(){
+    x.clearRect(0,0,c.width,c.height);
+    P.forEach(function(p){
+      p.x+=p.vx; p.y+=p.vy; p.r+=p.vr;
+      x.save(); x.translate(p.x,p.y); x.rotate(p.r); x.fillStyle=p.c; x.fillRect(-p.w/2,-p.h/2,p.w,p.h); x.restore();
+    });
+    if(++f<240) requestAnimationFrame(loop); else x.clearRect(0,0,c.width,c.height);
+  })();
+}
+
+/* ===================== SỰ KIỆN ===================== */
+$('#joinBtn').addEventListener('click',function(){
+  var name=$('#nameInput').value.trim().slice(0,14);
+  if(!name){ $('#nameErr').hidden=false; $('#nameInput').focus(); return; }
+  $('#nameErr').hidden=true;
+  profile.name=name; store.set('dtcb-profile',profile);
+  ac(); sfx.click();
+  newGame(profile.n); showWait();
+});
+$('#nameInput').addEventListener('input',function(){ $('#nameErr').hidden=true; });
+$('#nameInput').addEventListener('keydown',function(e){ if(e.key==='Enter'){ e.preventDefault(); $('#joinBtn').click(); } });
+$('#skipWait').addEventListener('click',function(){ resetSession(); G.joined=G.players.length; sfx.go(); startRound(); });
+$('#fbNext').addEventListener('click',function(){ if($('#fbNext').disabled) return; sfx.click(); showBoard(); });
+$('#boardNext').addEventListener('click',function(){
+  sfx.click();
+  if(G.i+1>=G.n){ showFinal(); return; }
+  if((G.i+1)%5===0){ showWheel(); return; }
+  G.i++; startRound();
+});
+$('#spinBtn').addEventListener('click',spin);
+$('#wheelNext').addEventListener('click',function(){ sfx.click(); G.i++; startRound(); });
+$('#againBtn').addEventListener('click',function(){ sfx.click(); newGame(G.n); showWait(); });
+$('#homeBtn').addEventListener('click',function(){ sfx.click(); resetSession(); G=null; buildHome(); show('s-home'); });
+$('#sndBtn').addEventListener('click',function(){ muted=!muted; store.set('dtcb-muted',muted); renderSound(); if(!muted) sfx.click(); });
+var exitArm=0;
+$('#exitBtn').addEventListener('click',function(){
+  var b=$('#exitBtn');
+  if(!exitArm){
+    b.textContent='Bấm lần nữa để thoát';
+    exitArm=setTimeout(function(){ exitArm=0; b.textContent='Thoát'; },3000);
+    return;
+  }
+  clearTimeout(exitArm); exitArm=0; b.textContent='Thoát';
+  resetSession(); G=null; buildHome(); show('s-home');
+});
+document.addEventListener('keydown',function(e){
+  var tg=e.target&&e.target.tagName;
+  if(tg==='INPUT'||tg==='TEXTAREA'||e.ctrlKey||e.metaKey||e.altKey) return;
+  if(!G) return;
+  var scr=GAME_SCREENS.filter(function(id){ return !$('#'+id).hidden; })[0];
+  var k=e.key.toUpperCase();
+  if(scr==='s-bet'){
+    var bi=['1','2','3'].indexOf(k);
+    if(bi>-1){ e.preventDefault(); chooseBet(bi); }
+  } else if(scr==='s-q'){
+    var pos='ABCD'.indexOf(k); if(pos<0) pos=['1','2','3','4'].indexOf(k);
+    if(pos>-1 && G.cur && !G.cur.answered){ e.preventDefault(); answer(G.cur.q.perm[pos]); }
+  } else if(e.key==='Enter'){
+    var btn = scr==='s-fb' ? $('#fbNext') : scr==='s-board' ? $('#boardNext') : scr==='s-wheel' ? ($('#spinBtn').hidden?$('#wheelNext'):$('#spinBtn')) : null;
+    if(btn && !btn.disabled){ e.preventDefault(); btn.click(); }
+  }
+});
+
+/* ===================== KHỞI ĐỘNG ===================== */
+renderSound();
+buildHome();
+show('s-home');
+})();
+</script>
+
+</body></html>
